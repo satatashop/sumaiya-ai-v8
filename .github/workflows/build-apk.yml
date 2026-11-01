@@ -1,4 +1,5 @@
-name: Build Sumaiya AI APK
+
+name: Build Sumaiya AI V8 APK
 
 on:
   workflow_dispatch:
@@ -11,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -46,7 +47,30 @@ jobs:
       - name: Add Android
         run: npx cap add android
 
-      - name: Sync Android
+      - name: Integrate AppList plugin
+        run: |
+          mkdir -p android/app/src/main/java/com/sumaiya/aiassistant
+          cp native/AppListPlugin.java android/app/src/main/java/com/sumaiya/aiassistant/AppListPlugin.java
+
+      - name: Add launcher visibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          queries = '''
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.MAIN" />
+                      <category android:name="android.intent.category.LAUNCHER" />
+                  </intent>
+              </queries>
+          '''
+          s = s.replace("<application", queries + "\n    <application", 1)
+          p.write_text(s)
+          PY
+
+      - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Build APK
