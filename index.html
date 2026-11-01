@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -5,50 +6,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sumaiya AI Assistant V8</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 *{box-sizing:border-box}
-body{
- margin:0;background:#090b18;color:#fff;
- font-family:Arial,"Noto Sans Bengali",sans-serif;
-}
-header{
- padding:18px;background:#15172c;
- display:flex;align-items:center;justify-content:space-between;
- border-bottom:1px solid #303253;
-}
+body{margin:0;background:#090b18;color:#fff;font-family:Arial,"Noto Sans Bengali",sans-serif}
+header{padding:18px;background:#15172c;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #303253}
 .logo{font-size:20px;font-weight:bold;color:#d7a8ff}
 .status{font-size:12px;color:#a7a9c9}
 main{max-width:700px;margin:auto;padding:15px}
-.panel{
- background:#15172c;border:1px solid #303253;
- border-radius:16px;padding:15px;margin-bottom:14px;
-}
+.panel{background:#15172c;border:1px solid #303253;border-radius:16px;padding:15px;margin-bottom:14px}
 h3{margin-top:0;color:#d7a8ff}
-input,textarea,button{
- width:100%;padding:13px;border-radius:10px;
- border:1px solid #414466;background:#0e1022;
- color:white;font-size:15px;margin:6px 0;
-}
-button{
- background:linear-gradient(100deg,#7545df,#c044bd);
- border:0;font-weight:bold;cursor:pointer;
-}
+input,textarea,button{width:100%;padding:13px;border-radius:10px;border:1px solid #414466;background:#0e1022;color:white;font-size:15px;margin:6px 0}
+button{background:linear-gradient(100deg,#7545df,#c044bd);border:0;font-weight:bold;cursor:pointer}
 button.secondary{background:#292d4c}
 button:disabled{opacity:.5}
-#chat{
- height:330px;overflow-y:auto;background:#0e1022;
- border-radius:12px;padding:12px;margin-bottom:10px;
-}
-.msg{padding:11px;margin:8px 0;border-radius:12px;line-height:1.6}
+#chat{height:330px;overflow-y:auto;background:#0e1022;border-radius:12px;padding:12px;margin-bottom:10px}
+.msg{padding:11px;margin:8px 0;border-radius:12px;line-height:1.6;overflow-wrap:anywhere}
 .user{background:#443078;margin-left:35px}
 .ai{background:#252943;margin-right:25px}
 .small{font-size:12px;color:#aaa}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .hidden{display:none}
+.app-item{display:flex;align-items:center;gap:8px;text-align:left;min-height:58px}
+.app-item img{width:35px;height:35px;object-fit:contain}
 </style>
 </head>
-<body>
 
+<body>
 <header>
  <div>
   <div class="logo">💜 Sumaiya AI V8</div>
@@ -94,13 +78,11 @@ button:disabled{opacity:.5}
  </section>
 
  <section class="panel">
-  <h3>📱 অ্যাপ ওপেন করুন</h3>
-  <div class="grid">
-   <button onclick="openUrl('https://www.facebook.com')">Facebook</button>
-   <button onclick="openUrl('https://www.youtube.com')">YouTube</button>
-   <button onclick="openUrl('https://www.tiktok.com')">TikTok</button>
-   <button onclick="openUrl('https://web.whatsapp.com')">WhatsApp</button>
-  </div>
+  <h3>📱 আমার ফোনের অ্যাপস</h3>
+  <input id="appSearch" placeholder="অ্যাপের নাম খুঁজুন..." oninput="filterApps()">
+  <button onclick="loadInstalledApps()">📲 অ্যাপের তালিকা দেখুন</button>
+  <div id="appStatus" class="small">তালিকা দেখতে বাটনে চাপ দাও।</div>
+  <div id="installedApps" class="grid"></div>
  </section>
 
  <section class="panel">
@@ -113,26 +95,29 @@ button:disabled{opacity:.5}
 </main>
 
 <script>
-const SUPABASE_URL = "https://pmegvhlktgneoutxqbgs.supabase.co";
-const SUPABASE_KEY = "sb_publishable_K63xKJ9n4mKY4mGHhcWHdQ_aHomYYjL";
+const SUPABASE_URL="https://pmegvhlktgneoutxqbgs.supabase.co";
+const SUPABASE_KEY="sb_publishable_K63xKJ9n4mKY4mGHhcWHdQ_aHomYYjL";
 
-const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-const AI_URL = SUPABASE_URL + "/functions/v1/swift-service";
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const AI_URL=SUPABASE_URL+"/functions/v1/swift-service";
 
-let lastAnswer = "";
+let lastAnswer="";
+let installedApps=[];
 
 function show(id,yes){
  document.getElementById(id).classList.toggle("hidden",!yes);
 }
 
 async function checkLogin(){
- const {data:{session}} = await db.auth.getSession();
+ const {data:{session}}=await db.auth.getSession();
  if(session){
-  show("auth",false);show("app",true);
+  show("auth",false);
+  show("app",true);
   document.getElementById("accountInfo").textContent=session.user.email;
   document.getElementById("status").textContent="● Connected";
  }else{
-  show("auth",true);show("app",false);
+  show("auth",true);
+  show("app",false);
  }
 }
 
@@ -206,7 +191,8 @@ async function sendMessage(){
 
 document.getElementById("message").addEventListener("keydown",e=>{
  if(e.key==="Enter"&&!e.shiftKey){
-  e.preventDefault();sendMessage();
+  e.preventDefault();
+  sendMessage();
  }
 });
 
@@ -216,37 +202,81 @@ function startVoice(){
   alert("এই ব্রাউজারে Voice Input সমর্থিত নয়।");
   return;
  }
+
  const recognition=new SpeechRecognition();
  recognition.lang="bn-BD";
+
  recognition.onresult=e=>{
-  document.getElementById("message").value=e.results[0][0].transcript;
+  const text=e.results[0][0].transcript.trim();
+  const command=text.toLowerCase();
+
+  const aliases={
+   "ইমো":["imo","ইমো"],
+   "imo":["imo","ইমো"],
+   "হোয়াটসঅ্যাপ":["whatsapp","হোয়াটসঅ্যাপ"],
+   "whatsapp":["whatsapp","হোয়াটসঅ্যাপ"],
+   "ফেসবুক":["facebook","ফেসবুক"],
+   "facebook":["facebook","ফেসবুক"],
+   "ইউটিউব":["youtube","ইউটিউব"],
+   "youtube":["youtube","ইউটিউব"],
+   "টিকটক":["tiktok","টিকটক"],
+   "tiktok":["tiktok","টিকটক"]
+  };
+
+  const match=command.match(/(.+?)\s*(খোলো|ওপেন করো|চালু করো)$/i);
+
+  if(match){
+   const requested=match[1].replace(/^সুমাইয়া\s*/,"").trim();
+   const names=aliases[requested]||[requested];
+
+   const found=installedApps.find(app=>{
+    const name=app.name.toLowerCase();
+    const pkg=app.packageName.toLowerCase();
+    return names.some(n=>name.includes(n)||pkg.includes(n));
+   });
+
+   if(found){
+    addMessage(text,"user");
+    addMessage(found.name+" খোলার চেষ্টা করছি।","ai");
+    openInstalledApp(found.packageName);
+    return;
+   }
+  }
+
+  document.getElementById("message").value=text;
   sendMessage();
  };
+
  recognition.onerror=()=>alert("মাইক্রোফোন কাজ করছে না। Permission পরীক্ষা করুন।");
  recognition.start();
 }
 
 function speakLast(){
- if(!lastAnswer){alert("আগে AI-এর উত্তর আসতে হবে।");return;}
+ if(!lastAnswer){
+  alert("আগে AI-এর উত্তর আসতে হবে।");
+  return;
+ }
  const speech=new SpeechSynthesisUtterance(lastAnswer);
  speech.lang="bn-BD";
  speechSynthesis.speak(speech);
 }
 
-function openUrl(url){window.open(url,"_blank");}
-
 function openTool(tool){
  const area=document.getElementById("toolArea");
+
  if(tool==="notes"){
   area.innerHTML='<h3>নোট</h3><textarea id="note" rows="4" placeholder="নোট লিখুন"></textarea><button onclick="localStorage.setItem(\'sumaiya_note\',document.getElementById(\'note\').value);alert(\'নোট সেভ হয়েছে\')">নোট সেভ</button>';
   document.getElementById("note").value=localStorage.getItem("sumaiya_note")||"";
  }
+
  if(tool==="translate"){
   area.innerHTML='<h3>অনুবাদ</h3><textarea id="transText" placeholder="অনুবাদের লেখা"></textarea><button onclick="document.getElementById(\'message\').value=\'এই লেখাটি বাংলায় অনুবাদ করো: \'+document.getElementById(\'transText\').value;sendMessage()">অনুবাদ করুন</button>';
  }
+
  if(tool==="calculator"){
   area.innerHTML='<h3>ক্যালকুলেটর</h3><input id="calc" placeholder="যেমন: 25+30"><button onclick="calculate()">হিসাব করুন</button><div id="calcResult"></div>';
  }
+
  if(tool==="reminder"){
   area.innerHTML='<h3>রিমাইন্ডার</h3><input id="remText" placeholder="কিসের রিমাইন্ডার?"><input id="remTime" type="datetime-local"><button onclick="setReminder()">রিমাইন্ডার সেট</button><div class="small">ব্রাউজার বন্ধ থাকলে রিমাইন্ডার নাও আসতে পারে।</div>';
  }
@@ -260,7 +290,8 @@ function calculate(){
  }
  try{
   const result=Function('"use strict";return ('+value+')')();
-  document.getElementById("calcResult").textContent="উত্তর: "+result;
+  document.getElementById("calcResult").textContent=
+   Number.isFinite(result)?"উত্তর: "+result:"হিসাব করা যায়নি";
  }catch(e){
   document.getElementById("calcResult").textContent="হিসাব সঠিক হয়নি";
  }
@@ -269,24 +300,104 @@ function calculate(){
 function setReminder(){
  const title=document.getElementById("remText").value;
  const time=new Date(document.getElementById("remTime").value).getTime();
- if(!title||!time||time<=Date.now()){alert("সঠিক সময় ও লেখা দিন");return;}
+
+ if(!title||!time||time<=Date.now()){
+  alert("সঠিক সময় ও লেখা দিন");
+  return;
+ }
+
  const delay=time-Date.now();
- if(delay>2147480000){alert("এত দূরের রিমাইন্ডার ব্রাউজার সমর্থন করে না");return;}
+ if(delay>2147480000){
+  alert("এত দূরের রিমাইন্ডার ব্রাউজার সমর্থন করে না");
+  return;
+ }
+
  if("Notification" in window){
   Notification.requestPermission();
  }
+
  setTimeout(()=>{
-  if(Notification.permission==="granted"){
+  if("Notification" in window&&Notification.permission==="granted"){
    new Notification("Sumaiya Reminder",{body:title});
   }else{
    alert("রিমাইন্ডার: "+title);
   }
  },delay);
+
  alert("রিমাইন্ডার সেট হয়েছে। ব্রাউজার চালু রাখুন।");
+}
+
+async function loadInstalledApps(){
+ const status=document.getElementById("appStatus");
+ const list=document.getElementById("installedApps");
+
+ if(!window.AppList){
+  status.textContent="Native AppList Plugin সংযুক্ত হয়নি। APK পরীক্ষা করুন।";
+  return;
+ }
+
+ try{
+  status.textContent="অ্যাপ খোঁজা হচ্ছে...";
+  const result=await window.AppList.getInstalledApps();
+  installedApps=result.apps||[];
+
+  list.innerHTML="";
+
+  installedApps.forEach(app=>{
+   const button=document.createElement("button");
+   button.className="secondary app-item";
+
+   if(app.icon){
+    const img=document.createElement("img");
+    img.src=app.icon;
+    img.alt="";
+    button.appendChild(img);
+   }
+
+   const label=document.createElement("span");
+   label.textContent=app.name;
+   button.appendChild(label);
+
+   button.onclick=()=>openInstalledApp(app.packageName);
+   list.appendChild(button);
+  });
+
+  status.textContent=installedApps.length+"টি অ্যাপ পাওয়া গেছে।";
+  filterApps();
+
+ }catch(error){
+  status.textContent="অ্যাপ পাওয়া যায়নি: "+error.message;
+ }
+}
+
+async function openInstalledApp(packageName){
+ try{
+  if(!window.AppList)throw new Error("Native Plugin পাওয়া যায়নি");
+  await window.AppList.openApp({packageName});
+ }catch(error){
+  alert("অ্যাপ খোলা যায়নি: "+error.message);
+ }
+}
+
+function filterApps(){
+ const query=document.getElementById("appSearch").value.toLowerCase();
+
+ document.querySelectorAll("#installedApps button").forEach(button=>{
+  button.style.display=button.textContent.toLowerCase().includes(query)?"flex":"none";
+ });
 }
 
 db.auth.onAuthStateChange(()=>checkLogin());
 checkLogin();
 </script>
+
+<script type="module">
+import { registerPlugin } from
+'https://esm.sh/@capacitor/core@7.4.3';
+
+const AppList=registerPlugin('AppList');
+window.AppList=AppList;
+</script>
+
 </body>
 </html>
