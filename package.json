@@ -1,0 +1,16 @@
+{
+  "name": "sumaiya-ai-v8",
+  "version": "8.0.0",
+  "private": true,
+  "description": "Sumaiya AI Personal Assistant",
+  "scripts": {
+    "build": "node -e \"console.log('Sumaiya AI build started')\""
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/android": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}
