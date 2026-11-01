@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sumaiya AI Assistant V8</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#090b18;color:#fff;
+ font-family:Arial,"Noto Sans Bengali",sans-serif;
+}
+header{
+ padding:18px;background:#15172c;
+ display:flex;align-items:center;justify-content:space-between;
+ border-bottom:1px solid #303253;
+}
+.logo{font-size:20px;font-weight:bold;color:#d7a8ff}
+.status{font-size:12px;color:#a7a9c9}
+main{max-width:700px;margin:auto;padding:15px}
+.panel{
+ background:#15172c;border:1px solid #303253;
+ border-radius:16px;padding:15px;margin-bottom:14px;
+}
+h3{margin-top:0;color:#d7a8ff}
+input,textarea,button{
+ width:100%;padding:13px;border-radius:10px;
+ border:1px solid #414466;background:#0e1022;
+ color:white;font-size:15px;margin:6px 0;
+}
+button{
+ background:linear-gradient(100deg,#7545df,#c044bd);
+ border:0;font-weight:bold;cursor:pointer;
+}
+button.secondary{background:#292d4c}
+button:disabled{opacity:.5}
+#chat{
+ height:330px;overflow-y:auto;background:#0e1022;
+ border-radius:12px;padding:12px;margin-bottom:10px;
+}
+.msg{padding:11px;margin:8px 0;border-radius:12px;line-height:1.6}
+.user{background:#443078;margin-left:35px}
+.ai{background:#252943;margin-right:25px}
+.small{font-size:12px;color:#aaa}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<header>
+ <div>
+  <div class="logo">💜 Sumaiya AI V8</div>
+  <div class="status" id="status">AI Assistant</div>
+ </div>
+ <button style="width:auto;padding:10px 14px" onclick="logout()">Logout</button>
+</header>
+
+<main>
+
+<section class="panel" id="auth">
+ <h3>অ্যাকাউন্টে প্রবেশ</h3>
+ <input id="email" type="email" placeholder="Email">
+ <input id="password" type="password" placeholder="Password">
+ <button onclick="login()">Login</button>
+ <button class="secondary" onclick="signup()">নতুন অ্যাকাউন্ট তৈরি</button>
+ <div id="authMsg" class="small"></div>
+</section>
+
+<div id="app" class="hidden">
+
+ <section class="panel">
+  <h3>💬 AI বাংলা চ্যাট</h3>
+  <div id="chat"></div>
+  <textarea id="message" rows="2" placeholder="তোমার প্রশ্ন লিখো..."></textarea>
+  <div class="grid">
+   <button onclick="sendMessage()">পাঠান ➤</button>
+   <button class="secondary" onclick="startVoice()">🎙️ কথা বলুন</button>
+  </div>
+  <button class="secondary" onclick="speakLast()">🔊 উত্তর শুনুন</button>
+  <div class="small" id="chatStatus"></div>
+ </section>
+
+ <section class="panel">
+  <h3>⚡ দ্রুত টুলস</h3>
+  <div class="grid">
+   <button onclick="openTool('notes')">📝 নোট</button>
+   <button onclick="openTool('translate')">🌐 অনুবাদ</button>
+   <button onclick="openTool('calculator')">🧮 ক্যালকুলেটর</button>
+   <button onclick="openTool('reminder')">⏰ রিমাইন্ডার</button>
+  </div>
+  <div id="toolArea"></div>
+ </section>
+
+ <section class="panel">
+  <h3>📱 অ্যাপ ওপেন করুন</h3>
+  <div class="grid">
+   <button onclick="openUrl('https://www.facebook.com')">Facebook</button>
+   <button onclick="openUrl('https://www.youtube.com')">YouTube</button>
+   <button onclick="openUrl('https://www.tiktok.com')">TikTok</button>
+   <button onclick="openUrl('https://web.whatsapp.com')">WhatsApp</button>
+  </div>
+ </section>
+
+ <section class="panel">
+  <h3>🔐 অ্যাকাউন্ট</h3>
+  <div id="accountInfo" class="small"></div>
+  <button class="secondary" onclick="logout()">Logout</button>
+ </section>
+
+</div>
+</main>
+
+<script>
+const SUPABASE_URL = "https://pmegvhlktgneoutxqbgs.supabase.co";
+const SUPABASE_KEY = "sb_publishable_K63xKJ9n4mKY4mGHhcWHdQ_aHomYYjL";
+
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const AI_URL = SUPABASE_URL + "/functions/v1/swift-service";
+
+let lastAnswer = "";
+
+function show(id,yes){
+ document.getElementById(id).classList.toggle("hidden",!yes);
+}
+
+async function checkLogin(){
+ const {data:{session}} = await db.auth.getSession();
+ if(session){
+  show("auth",false);show("app",true);
+  document.getElementById("accountInfo").textContent=session.user.email;
+  document.getElementById("status").textContent="● Connected";
+ }else{
+  show("auth",true);show("app",false);
+ }
+}
+
+async function login(){
+ const email=document.getElementById("email").value.trim();
+ const password=document.getElementById("password").value;
+ const {error}=await db.auth.signInWithPassword({email,password});
+ document.getElementById("authMsg").textContent=error?error.message:"Login successful";
+ if(!error)checkLogin();
+}
+
+async function signup(){
+ const email=document.getElementById("email").value.trim();
+ const password=document.getElementById("password").value;
+ const {error}=await db.auth.signUp({email,password});
+ document.getElementById("authMsg").textContent=
+ error?error.message:"অ্যাকাউন্ট তৈরি হয়েছে। Email verification লাগতে পারে।";
+}
+
+async function logout(){
+ await db.auth.signOut();
+ location.reload();
+}
+
+function addMessage(text,type){
+ const chat=document.getElementById("chat");
+ const div=document.createElement("div");
+ div.className="msg "+type;
+ div.textContent=text;
+ chat.appendChild(div);
+ chat.scrollTop=chat.scrollHeight;
+}
+
+async function sendMessage(){
+ const input=document.getElementById("message");
+ const text=input.value.trim();
+ if(!text)return;
+
+ input.value="";
+ addMessage(text,"user");
+ document.getElementById("chatStatus").textContent="AI উত্তর তৈরি করছে...";
+
+ try{
+  const {data:{session}}=await db.auth.getSession();
+  if(!session)throw new Error("আবার Login করুন");
+
+  const response=await fetch(AI_URL,{
+   method:"POST",
+   headers:{
+    "Content-Type":"application/json",
+    "Authorization":"Bearer "+session.access_token,
+    "apikey":SUPABASE_KEY
+   },
+   body:JSON.stringify({
+    messages:[{role:"user",content:text}]
+   })
+  });
+
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||"AI service error");
+
+  lastAnswer=result.reply||result.answer||result.message||"উত্তর পাওয়া যায়নি";
+  addMessage(lastAnswer,"ai");
+  document.getElementById("chatStatus").textContent="";
+
+ }catch(error){
+  addMessage("সমস্যা: "+error.message,"ai");
+  document.getElementById("chatStatus").textContent="AI সার্ভিস পরীক্ষা করতে হবে।";
+ }
+}
+
+document.getElementById("message").addEventListener("keydown",e=>{
+ if(e.key==="Enter"&&!e.shiftKey){
+  e.preventDefault();sendMessage();
+ }
+});
+
+function startVoice(){
+ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SpeechRecognition){
+  alert("এই ব্রাউজারে Voice Input সমর্থিত নয়।");
+  return;
+ }
+ const recognition=new SpeechRecognition();
+ recognition.lang="bn-BD";
+ recognition.onresult=e=>{
+  document.getElementById("message").value=e.results[0][0].transcript;
+  sendMessage();
+ };
+ recognition.onerror=()=>alert("মাইক্রোফোন কাজ করছে না। Permission পরীক্ষা করুন।");
+ recognition.start();
+}
+
+function speakLast(){
+ if(!lastAnswer){alert("আগে AI-এর উত্তর আসতে হবে।");return;}
+ const speech=new SpeechSynthesisUtterance(lastAnswer);
+ speech.lang="bn-BD";
+ speechSynthesis.speak(speech);
+}
+
+function openUrl(url){window.open(url,"_blank");}
+
+function openTool(tool){
+ const area=document.getElementById("toolArea");
+ if(tool==="notes"){
+  area.innerHTML='<h3>নোট</h3><textarea id="note" rows="4" placeholder="নোট লিখুন"></textarea><button onclick="localStorage.setItem(\'sumaiya_note\',document.getElementById(\'note\').value);alert(\'নোট সেভ হয়েছে\')">নোট সেভ</button>';
+  document.getElementById("note").value=localStorage.getItem("sumaiya_note")||"";
+ }
+ if(tool==="translate"){
+  area.innerHTML='<h3>অনুবাদ</h3><textarea id="transText" placeholder="অনুবাদের লেখা"></textarea><button onclick="document.getElementById(\'message\').value=\'এই লেখাটি বাংলায় অনুবাদ করো: \'+document.getElementById(\'transText\').value;sendMessage()">অনুবাদ করুন</button>';
+ }
+ if(tool==="calculator"){
+  area.innerHTML='<h3>ক্যালকুলেটর</h3><input id="calc" placeholder="যেমন: 25+30"><button onclick="calculate()">হিসাব করুন</button><div id="calcResult"></div>';
+ }
+ if(tool==="reminder"){
+  area.innerHTML='<h3>রিমাইন্ডার</h3><input id="remText" placeholder="কিসের রিমাইন্ডার?"><input id="remTime" type="datetime-local"><button onclick="setReminder()">রিমাইন্ডার সেট</button><div class="small">ব্রাউজার বন্ধ থাকলে রিমাইন্ডার নাও আসতে পারে।</div>';
+ }
+}
+
+function calculate(){
+ const value=document.getElementById("calc").value.trim();
+ if(!/^[0-9+\-*/(). %]+$/.test(value)){
+  document.getElementById("calcResult").textContent="সঠিক হিসাব লিখুন";
+  return;
+ }
+ try{
+  const result=Function('"use strict";return ('+value+')')();
+  document.getElementById("calcResult").textContent="উত্তর: "+result;
+ }catch(e){
+  document.getElementById("calcResult").textContent="হিসাব সঠিক হয়নি";
+ }
+}
+
+function setReminder(){
+ const title=document.getElementById("remText").value;
+ const time=new Date(document.getElementById("remTime").value).getTime();
+ if(!title||!time||time<=Date.now()){alert("সঠিক সময় ও লেখা দিন");return;}
+ const delay=time-Date.now();
+ if(delay>2147480000){alert("এত দূরের রিমাইন্ডার ব্রাউজার সমর্থন করে না");return;}
+ if("Notification" in window){
+  Notification.requestPermission();
+ }
+ setTimeout(()=>{
+  if(Notification.permission==="granted"){
+   new Notification("Sumaiya Reminder",{body:title});
+  }else{
+   alert("রিমাইন্ডার: "+title);
+  }
+ },delay);
+ alert("রিমাইন্ডার সেট হয়েছে। ব্রাউজার চালু রাখুন।");
+}
+
+db.auth.onAuthStateChange(()=>checkLogin());
+checkLogin();
+</script>
+</body>
+</html>
