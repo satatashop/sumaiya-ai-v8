@@ -1,0 +1,9 @@
+{
+  "appId": "com.sumaiya.aiassistant",
+  "appName": "Sumaiya AI V8",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false
+  }
+}
