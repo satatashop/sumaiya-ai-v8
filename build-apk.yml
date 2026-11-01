@@ -1,4 +1,5 @@
-name: Build Sumaiya AI APK
+
+name: Build Sumaiya AI V8 APK
 
 on:
   workflow_dispatch:
@@ -39,13 +40,53 @@ jobs:
           {
             "appId": "com.sumaiya.aiassistant",
             "appName": "Sumaiya AI V8",
-            "webDir": "www",
-            "bundledWebRuntime": false
+            "webDir": "www"
           }
           EOF
 
       - name: Create Android project
         run: npx cap add android
+
+      - name: Install AppList native plugin
+        run: |
+          mkdir -p android/app/src/main/java/com/sumaiya/aiassistant
+          cp native/AppListPlugin.java android/app/src/main/java/com/sumaiya/aiassistant/AppListPlugin.java
+
+      - name: Register AppList plugin
+        run: |
+          cat > android/app/src/main/java/com/sumaiya/aiassistant/MainActivity.java <<'EOF'
+          package com.sumaiya.aiassistant;
+
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  registerPlugin(AppListPlugin.class);
+                  super.onCreate(savedInstanceState);
+              }
+          }
+          EOF
+
+      - name: Configure app visibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          queries = """
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.MAIN" />
+                      <category android:name="android.intent.category.LAUNCHER" />
+                  </intent>
+              </queries>
+          """
+          if "<queries>" not in s:
+              s = s.replace("<application", queries + "\n    <application", 1)
+          p.write_text(s)
+          PY
 
       - name: Sync Android
         run: npx cap sync android
